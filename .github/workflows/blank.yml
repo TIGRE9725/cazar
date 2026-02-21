@@ -1,0 +1,46 @@
+name: Caza de la Bestia Oracle
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Se ejecuta automáticamente cada hora
+  workflow_dispatch: # Permite que tú lo actives manualmente desde la pestaña Actions
+
+jobs:
+  cazar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          chmod +x install.sh
+          ./install.sh --accept-all-defaults
+          echo "/home/runner/bin" >> $GITHUB_PATH
+
+      - name: Configurar OCI
+        run: |
+          mkdir -p ~/.oci
+          echo "[DEFAULT]" > ~/.oci/config
+          echo "user=${{ secrets.OCI_USER_OCID }}" >> ~/.oci/config
+          echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> ~/.oci/config
+          echo "tenancy=${{ secrets.OCI_TENANCY_OCID }}" >> ~/.oci/config
+          echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
+          echo "key_file=~/.oci/key.pem" >> ~/.oci/config
+          
+          # Cargar la llave privada desde los Secrets
+          echo "${{ secrets.OCI_KEY_CONTENT }}" > ~/.oci/key.pem
+          chmod 600 ~/.oci/key.pem
+
+      - name: Intentar crear la Bestia (ARM 4 OCPU / 24GB RAM)
+        run: |
+          echo "Lanzando petición a Oracle Monterrey (AD: ${{ secrets.OCI_AD }})..."
+          oci compute instance launch \
+            --availability-domain "${{ secrets.OCI_AD }}" \
+            --compartment-id "${{ secrets.OCI_COMPARTMENT_ID }}" \
+            --shape "VM.Standard.A1.Flex" \
+            --shape-config '{"ocpus":4,"memory_in_gbs":24}' \
+            --assign-public-ip true \
+            --display-name "LaBestiaAnyelo" \
+            --image-id "${{ secrets.OCI_IMAGE_ID }}" \
+            --ssh-authorized-keys-file ~/.oci/key.pem \
+            --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
+            --wait-for-state RUNNING
