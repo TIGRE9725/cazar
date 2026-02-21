@@ -3,7 +3,7 @@ name: Caza de la Bestia Oracle
 on:
   schedule:
     - cron: '0 * * * *' # Se ejecuta automáticamente cada hora
-  workflow_dispatch: # Permite que tú lo actives manualmente desde la pestaña Actions
+  workflow_dispatch: # Permite activarlo manualmente
 
 jobs:
   cazar:
@@ -16,7 +16,7 @@ jobs:
           ./install.sh --accept-all-defaults
           echo "/home/runner/bin" >> $GITHUB_PATH
 
-      - name: Configurar OCI
+      - name: Configurar OCI y Generar Llave Pública
         run: |
           mkdir -p ~/.oci
           echo "[DEFAULT]" > ~/.oci/config
@@ -26,13 +26,18 @@ jobs:
           echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
           echo "key_file=~/.oci/key.pem" >> ~/.oci/config
           
-          # Cargar la llave privada desde los Secrets
+          # Cargar la llave privada
           echo "${{ secrets.OCI_KEY_CONTENT }}" > ~/.oci/key.pem
           chmod 600 ~/.oci/key.pem
 
+          # EXTRAER LA LLAVE PÚBLICA AUTOMÁTICAMENTE
+          ssh-keygen -y -f ~/.oci/key.pem > ~/.oci/id_rsa.pub
+
       - name: Intentar crear la Bestia (ARM 4 OCPU / 24GB RAM)
         run: |
-          echo "Lanzando petición a Oracle Monterrey (AD: ${{ secrets.OCI_AD }})..."
+          echo "Lanzando petición a Oracle Monterrey..."
+          
+          # No necesitamos el echo del secret public key porque ya lo generamos arriba
           oci compute instance launch \
             --availability-domain "${{ secrets.OCI_AD }}" \
             --compartment-id "${{ secrets.OCI_COMPARTMENT_ID }}" \
@@ -41,6 +46,6 @@ jobs:
             --assign-public-ip true \
             --display-name "LaBestiaAnyelo" \
             --image-id "${{ secrets.OCI_IMAGE_ID }}" \
-            --ssh-authorized-keys-file ~/.oci/key.pem \
+            --ssh-authorized-keys-file ~/.oci/id_rsa.pub \
             --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
             --wait-for-state RUNNING
