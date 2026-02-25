@@ -33,7 +33,7 @@ jobs:
           # EXTRAER LA LLAVE PÚBLICA AUTOMÁTICAMENTE
           ssh-keygen -y -f ~/.oci/key.pem > ~/.oci/id_rsa.pub
 
-            - name: Intentar crear la Bestia (ARM 4 OCPU / 24GB RAM)
+      - name: Intentar crear la Bestia (ARM 4 OCPU / 24GB RAM)
         continue-on-error: true # Evita que el workflow aparezca como rojo si Oracle dice que NO
         run: |
           echo "Lanzando petición a Oracle Monterrey..."
