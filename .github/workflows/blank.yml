@@ -33,12 +33,12 @@ jobs:
           # EXTRAER LA LLAVE PÚBLICA AUTOMÁTICAMENTE
           ssh-keygen -y -f ~/.oci/key.pem > ~/.oci/id_rsa.pub
 
-      - name: Intentar crear la Bestia (ARM 4 OCPU / 24GB RAM)
+            - name: Intentar crear la Bestia (ARM 4 OCPU / 24GB RAM)
+        continue-on-error: true # Evita que el workflow aparezca como rojo si Oracle dice que NO
         run: |
           echo "Lanzando petición a Oracle Monterrey..."
           
-          # No necesitamos el echo del secret public key porque ya lo generamos arriba
-          oci compute instance launch \
+          RESPONSE=$(oci compute instance launch \
             --availability-domain "${{ secrets.OCI_AD }}" \
             --compartment-id "${{ secrets.OCI_COMPARTMENT_ID }}" \
             --shape "VM.Standard.A1.Flex" \
@@ -47,5 +47,14 @@ jobs:
             --display-name "LaBestiaAnyelo" \
             --image-id "${{ secrets.OCI_IMAGE_ID }}" \
             --ssh-authorized-keys-file ~/.oci/id_rsa.pub \
-            --subnet-id "${{ secrets.OCI_SUBNET_ID }}" \
-            --wait-for-state RUNNING
+            --subnet-id "${{ secrets.OCI_SUBNET_ID }}" 2>&1)
+
+          if [[ $RESPONSE == *"Out of capacity"* ]]; then
+            echo "❌ Fallo táctico: No hay inventario disponible. Reintentando en la próxima hora."
+          elif [[ $RESPONSE == *"LimitExceeded"* ]]; then
+            echo "⚠️ Límite excedido: ¿Quizás ya tienes una instancia creada?"
+            exit 1
+          else
+            echo "✅ ¡LA BESTIA HA SIDO DOMADA!"
+            echo "$RESPONSE"
+          fi
